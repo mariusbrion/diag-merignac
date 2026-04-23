@@ -206,7 +206,10 @@
         .popup-photo {
             width: 100%;
             max-width: 400px;
+            max-height: 350px; /* Limite la hauteur pour éviter de trop longs popups */
             height: auto;
+            object-fit: contain; /* Préserve les proportions sans déformer */
+            image-orientation: from-image; /* Force le respect de l'orientation EXIF */
             border-radius: 4px;
             margin-top: 8px;
             display: block;
