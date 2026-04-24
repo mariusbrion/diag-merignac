@@ -314,7 +314,6 @@
                             },
                             onEachFeature: (feature, layer) => {
                                 counter++;
-                                // Modification pour afficher la propriété "Projet"
                                 const desc = feature.properties.Projet || feature.properties.GO_DESCRITION || feature.properties.description || "Projet d'aménagement";
                                 layer.bindPopup(`<strong>PROJET N°${counter} :</strong><br>${desc}`);
                                 let center = layer.getBounds ? layer.getBounds().getCenter() : layer.getLatLng();
@@ -364,14 +363,22 @@
             { id: 'conflit', url: 'conflit.geojson', name: 'Risque de conflit', category: 'comportement', color: '#c0392b', weight: 4, pane: 'backgroundPane' },
             
             // CONTEXTE
+            { id: 'projet', url: 'projet.geojson', name: 'Projets existants', category: 'contexte', color: '#e91e63', weight: 4, hiddenByDefault: true, pane: 'projectPane' },
             { id: 'metropole', url: 'proprietemetropole.geojson', name: 'Propriété Métropole', category: 'contexte', color: '#d35400', weight: 3, fillOpacity: 0.1, hiddenByDefault: true, pane: 'contextPane' },
             { id: 'reseauxstructurant', url: 'reseauxstructurant.geojson', name: 'Réseau Structurant', category: 'contexte', color: '#16a085', weight: 3, fill: false, hiddenByDefault: true, pane: 'contextPane' }
         ];
 
         function onEachFeature(feature, layer, configId) {
             const props = feature.properties;
+
+            // Mise en forme spécifique pour les projets de contexte (Labels permanents au centre)
+            if (configId === 'projet') {
+                const text = props.Projet || props.GO_DESCRITION || props.description || 'Projet';
+                layer.bindTooltip(text, { permanent: true, direction: 'center', className: 'project-label' });
+            }
+
             let content = '<div class="popup-content">';
-            const desc = props.description || props.Notes || props.GO_DESCRITION || 'Information';
+            const desc = props.description || props.Notes || props.GO_DESCRITION || props.Projet || 'Information';
             content += `<strong>${desc}</strong>`;
             if (props.photo || props.Photo) {
                 content += `<br><img src="${props.photo || props.Photo}" class="popup-photo" alt="Observation" onerror="this.style.display='none'">`;
