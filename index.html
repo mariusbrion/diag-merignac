@@ -314,7 +314,8 @@
                             },
                             onEachFeature: (feature, layer) => {
                                 counter++;
-                                const desc = feature.properties.GO_DESCRITION || feature.properties.description || "Projet d'aménagement";
+                                // Modification pour afficher la propriété "Projet"
+                                const desc = feature.properties.Projet || feature.properties.GO_DESCRITION || feature.properties.description || "Projet d'aménagement";
                                 layer.bindPopup(`<strong>PROJET N°${counter} :</strong><br>${desc}`);
                                 let center = layer.getBounds ? layer.getBounds().getCenter() : layer.getLatLng();
                                 if (center) {
