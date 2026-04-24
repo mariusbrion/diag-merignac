@@ -1,0 +1,121 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": 166,
+        "type": null,
+        "description": "Conflit d’usage jogger",
+        "photo": null
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -0.667369064801325,
+              44.857537365432215
+            ],
+            [
+              -0.6687434627388957,
+              44.856234910417356
+            ],
+            [
+              -0.6691053754806815,
+              44.85614631928987
+            ],
+            [
+              -0.6673830136979233,
+              44.85763218784009
+            ],
+            [
+              -0.667369064801325,
+              44.857537365432215
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": 204,
+        "type": null,
+        "description": "Conflit usager car trottoir trop petit et donc marche observée sur la bande cyclable",
+        "photo": "20260414_101614.jpg"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -0.666744589920867,
+              44.840060882464364
+            ],
+            [
+              -0.6668336297006342,
+              44.840183975521335
+            ],
+            [
+              -0.6667287166783314,
+              44.839701302772724
+            ],
+            [
+              -0.6666964994448585,
+              44.83984007889062
+            ],
+            [
+              -0.666744589920867,
+              44.840060882464364
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "fid": 252,
+        "type": null,
+        "description": "Conflit usage sortie de poubelle et trottoir directement à proximitée de la route crée de nombreux cheminement piétons sur les pistes",
+        "photo": "20260414_122800.jpg"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -0.6794688504520503,
+              44.84760380902621
+            ],
+            [
+              -0.6796471800824871,
+              44.84774020291535
+            ],
+            [
+              -0.6800319816348377,
+              44.846753620364815
+            ],
+            [
+              -0.6807426855639322,
+              44.84608288742561
+            ],
+            [
+              -0.6806663621522255,
+              44.84587944413019
+            ],
+            [
+              -0.6798246166440833,
+              44.84662782233742
+            ],
+            [
+              -0.6794688504520503,
+              44.84760380902621
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      }
+    }
+  ]
+}
