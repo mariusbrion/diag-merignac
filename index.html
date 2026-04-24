@@ -205,18 +205,13 @@
 
         .popup-photo {
             width: 100%;
-            max-width: 400px;
-            max-height: 350px; /* Limite la hauteur pour éviter de trop longs popups */
             height: auto;
-            object-fit: contain; /* Préserve les proportions sans déformer */
-            image-orientation: from-image; /* Force le respect de l'orientation EXIF */
             border-radius: 4px;
             margin-top: 8px;
-            display: block;
         }
 
         .leaflet-popup-content-wrapper { border-radius: 8px; }
-        .leaflet-popup-content { width: 420px !important; margin: 15px !important; line-height: 1.4; }
+        .leaflet-popup-content { width: 500px !important; margin: 15px !important; line-height: 1.4; }
 
         @media (max-width: 700px) {
             #custom-legend { width: 220px; }
@@ -229,7 +224,7 @@
 
     <div id="custom-legend">
         <div class="legend-header">
-            <h2 id="town-title">Diagnostic Mérignac</h2>
+            <h2>Diagnostic Mérignac</h2>
         </div>
         <div id="legend-container"></div>
     </div>
@@ -247,20 +242,16 @@
     <div id="map"></div>
 
     <script>
-        // Définition de la projection EPSG:3945 (CC45)
         proj4.defs("EPSG:3945","+proj=lcc +lat_1=44.25 +lat_2=45.75 +lat_0=45 +lon_0=3 +x_0=1700000 +y_0=4200000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
 
-        // Centrage sur Mérignac
         const map = L.map('map', { zoomControl: false }).setView([44.8386, -0.6433], 14);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Création des panes pour gérer l'ordre d'affichage
         map.createPane('contextPane').style.zIndex = 350; 
         map.createPane('backgroundPane').style.zIndex = 400; 
         map.createPane('diagnosticPane').style.zIndex = 450; 
         map.createPane('projectPane').style.zIndex = 600;
 
-        // Fonds de carte
         const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; CARTO',
             maxZoom: 20
@@ -285,14 +276,12 @@
             isSatellite = !isSatellite;
         }
 
-        // --- GESTION DES PROJETS ---
         let projetsLayer = null;
         let projectNumbersGroup = L.layerGroup();
         let isProjetsVisible = false;
 
         async function toggleProjets() {
             const btn = document.getElementById('btn-projets');
-            
             if (isProjetsVisible) {
                 if (projetsLayer) map.removeLayer(projetsLayer);
                 map.removeLayer(projectNumbersGroup);
@@ -303,9 +292,8 @@
                 if (!projetsLayer) {
                     try {
                         const response = await fetch('projets.geojson');
-                        if (!response.ok) throw new Error("Fichier introuvable");
+                        if (!response.ok) throw new Error();
                         const data = await response.json();
-                        
                         let counter = 0;
                         projetsLayer = L.geoJSON(data, {
                             pane: 'projectPane',
@@ -321,21 +309,14 @@
                                 weight: 3,
                                 opacity: 1,
                                 fillColor: '#3498db',
-                                fillOpacity: 0.1,
+                                fillOpacity: 0.05,
                                 className: 'flowing-path'
                             },
                             onEachFeature: (feature, layer) => {
                                 counter++;
                                 const desc = feature.properties.GO_DESCRITION || feature.properties.description || "Projet d'aménagement";
                                 layer.bindPopup(`<strong>PROJET N°${counter} :</strong><br>${desc}`);
-                                
-                                let center;
-                                if (layer.getBounds) {
-                                    center = layer.getBounds().getCenter();
-                                } else if (layer.getLatLng) {
-                                    center = layer.getLatLng();
-                                }
-
+                                let center = layer.getBounds ? layer.getBounds().getCenter() : layer.getLatLng();
                                 if (center) {
                                     const numberIcon = L.divIcon({
                                         className: 'project-number-marker',
@@ -347,11 +328,7 @@
                                 }
                             }
                         });
-                    } catch (e) {
-                        console.warn("Info: projets.geojson non chargé.");
-                        btn.classList.remove('active');
-                        return;
-                    }
+                    } catch (e) { btn.classList.remove('active'); return; }
                 }
                 projetsLayer.addTo(map);
                 projectNumbersGroup.addTo(map);
@@ -359,40 +336,47 @@
             }
         }
 
-        // --- CONFIGURATION DES COUCHES ---
         const layers = {};
         const categories = {
             amenagement: { title: "Aménagement défaillant", contentId: "cat-amenagement" },
             signalisation: { title: "Signalisation défaillante", contentId: "cat-signalisation" },
+            comportement: { title: "Risques et comportements", contentId: "cat-comportement" },
             contexte: { title: "Données de contexte", contentId: "cat-contexte" }
         };
 
-        // Mise à jour de la liste selon vos besoins Mérignac
         const layerConfigs = [
+            // AMENAGEMENT
             { id: 'ame', url: 'ame.geojson', name: 'Aménagement à améliorer/incohérent', category: 'amenagement', color: '#9b59b6', weight: 4, pane: 'diagnosticPane' },
+            { id: 'ameameliorer', url: 'ameameliorer.geojson', name: 'Aménagement à améliorer', category: 'amenagement', color: '#9b59b6', weight: 4, pane: 'diagnosticPane' },
             { id: 'revetement', url: 'revetement.geojson', name: 'Revêtement défectueux', category: 'amenagement', color: '#7f8c8d', weight: 5, fillOpacity: 0.5, pane: 'diagnosticPane' },
+            { id: 'visu', url: 'visu.geojson', name: 'Cône de visibilité', category: 'amenagement', color: '#f1c40f', weight: 2, fillOpacity: 0.4, pane: 'diagnosticPane' },
+            { id: 'rien', url: 'rien.geojson', name: 'Absence d\'aménagement', category: 'amenagement', color: '#2c3e50', weight: 4, pane: 'backgroundPane' },
+            
+            // SIGNALISATION
             { id: 'marquage', url: 'marquage.geojson', name: 'Marquage effacé', category: 'signalisation', color: '#95a5a6', weight: 4, dashArray: '5, 5', pane: 'diagnosticPane' },
             { id: 'traversee', url: 'traversee.geojson', name: 'Traversée non indiquée', category: 'signalisation', color: '#e74c3c', weight: 5, pane: 'diagnosticPane' },
+            { id: 'sas', url: 'sas.geojson', name: 'Sas Vélo', category: 'signalisation', color: '#ffffff', weight: 4, pane: 'diagnosticPane' },
             
-            // Couches de contexte optionnelles (si existantes)
-            { id: 'reseauxstructurant', url: 'reseauxstructurant.geojson', name: 'Réseau Structurant', category: 'contexte', color: '#16a085', weight: 3, fill: false, hiddenByDefault: true, pane: 'contextPane' },
-            { id: 'metropole', url: 'proprietemetropole.geojson', name: 'Propriété Métropole', category: 'contexte', color: '#d35400', weight: 3, fillOpacity: 0.1, hiddenByDefault: true, pane: 'contextPane' }
+            // COMPORTEMENT
+            { id: 'vegetation', url: 'vegetation.geojson', name: 'Végétation', category: 'comportement', color: '#27ae60', weight: 2, fillOpacity: 0.4, pane: 'diagnosticPane' },
+            { id: 'stationnement', url: 'stationnement.geojson', name: 'Stationnement gênant', category: 'comportement', color: '#f39c12', weight: 4, pane: 'diagnosticPane' },
+            { id: 'conflit', url: 'conflit.geojson', name: 'Risque de conflit', category: 'comportement', color: '#c0392b', weight: 4, pane: 'backgroundPane' },
+            
+            // CONTEXTE
+            { id: 'metropole', url: 'proprietemetropole.geojson', name: 'Propriété Métropole', category: 'contexte', color: '#d35400', weight: 3, fillOpacity: 0.1, hiddenByDefault: true, pane: 'contextPane' },
+            { id: 'reseauxstructurant', url: 'reseauxstructurant.geojson', name: 'Réseau Structurant', category: 'contexte', color: '#16a085', weight: 3, fill: false, hiddenByDefault: true, pane: 'contextPane' }
         ];
 
         function onEachFeature(feature, layer, configId) {
             const props = feature.properties;
-            
             let content = '<div class="popup-content">';
-            const desc = props.description || props.Notes || props.GO_DESCRITION || 'Information terrain';
+            const desc = props.description || props.Notes || props.GO_DESCRITION || 'Information';
             content += `<strong>${desc}</strong>`;
-            
-            // Gestion dynamique de la photo
             if (props.photo || props.Photo) {
-                const photoUrl = props.photo || props.Photo;
-                content += `<br><img src="${photoUrl}" class="popup-photo" alt="Photo observation" onerror="this.style.display='none'">`;
+                content += `<br><img src="${props.photo || props.Photo}" class="popup-photo" alt="Observation" onerror="this.style.display='none'">`;
             }
             content += '</div>';
-            layer.bindPopup(content, { maxWidth: 450 });
+            layer.bindPopup(content, { maxWidth: 500 });
         }
 
         async function loadGeoLayer(config) {
@@ -400,10 +384,7 @@
                 const response = await fetch(config.url);
                 if (!response.ok) return;
                 const data = await response.json();
-                
-                // Détection automatique du besoin de reprojection (CC45)
                 const needsReprojection = (data.crs && JSON.stringify(data.crs).includes('3945'));
-                
                 const layer = L.geoJSON(data, {
                     coordsToLatLng: (coords) => {
                         if (needsReprojection || coords[0] > 1000) {
@@ -414,17 +395,16 @@
                     },
                     style: (f) => ({
                         color: config.color, weight: config.weight, opacity: 0.9,
-                        fillColor: config.color, fillOpacity: config.fill === false ? 0 : (config.fillOpacity || 0.3),
+                        fillColor: config.color, fillOpacity: config.fill === false ? 0 : (config.fillOpacity || 0.2),
                         dashArray: config.dashArray || null, pane: config.pane
                     }),
                     pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, fillColor: config.color, color: "#fff", weight: 1.5, fillOpacity: 0.8, pane: config.pane }),
                     onEachFeature: (f, l) => onEachFeature(f, l, config.id)
                 });
-
                 layers[config.id] = layer;
                 if (!config.hiddenByDefault) layer.addTo(map);
                 addLayerToUI(config);
-            } catch (e) { console.warn("Fichier non chargé: " + config.url); }
+            } catch (e) { console.warn("Echec: " + config.url); }
         }
 
         function initLegendUI() {
@@ -460,6 +440,7 @@
 
         function addLayerToUI(config) {
             const container = document.getElementById(categories[config.category].contentId);
+            if (!container) return;
             const div = document.createElement('div');
             div.className = 'layer-item';
             div.innerHTML = `
