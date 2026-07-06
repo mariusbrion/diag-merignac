@@ -7,6 +7,8 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Heatmap Plugin -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <!-- Proj4js pour la gestion des projections (EPSG:3945) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
     <style>
@@ -211,7 +213,7 @@
         }
 
         .leaflet-popup-content-wrapper { border-radius: 8px; }
-        .leaflet-popup-content { width: 500px !important; margin: 15px !important; line-height: 1.4; }
+        .leaflet-popup-content { width: 320px !important; margin: 15px !important; line-height: 1.4; }
 
         @media (max-width: 700px) {
             #custom-legend { width: 220px; }
@@ -225,6 +227,9 @@
     <div id="custom-legend">
         <div class="legend-header">
             <h2>Diagnostic Mérignac</h2>
+            <div style="font-size: 0.72rem; color: #7f8c8d; margin-top: 5px; line-height: 1.2;">
+                💡 <strong>Clic-droit</strong> sur la carte pour proposer d'ouvrir le point dans Google Maps.
+            </div>
         </div>
         <div id="legend-container"></div>
     </div>
@@ -275,6 +280,42 @@
             }
             isSatellite = !isSatellite;
         }
+
+        // Clic droit ou appui long sur la carte pour proposer Google Maps
+        map.on('contextmenu', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            const gmapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+            
+            const content = `
+                <div style="font-family: inherit; text-align: center; padding: 5px;">
+                    <strong style="display: block; margin-bottom: 5px; color: var(--primary-color); font-size: 0.9rem;">
+                        Coordonnées sélectionnées
+                    </strong>
+                    <div style="font-size: 0.75rem; color: #7f8c8d; margin-bottom: 10px;">
+                        ${lat.toFixed(5)}, ${lng.toFixed(5)}
+                    </div>
+                    <a href="${gmapsUrl}" target="_blank" style="
+                        display: inline-block;
+                        background: #3498db;
+                        color: white;
+                        text-decoration: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        font-size: 0.8rem;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                    ">
+                        Voir sur Google Maps
+                    </a>
+                </div>
+            `;
+            
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(content)
+                .openOn(map);
+        });
 
         let projetsLayer = null;
         let projectNumbersGroup = L.layerGroup();
@@ -365,8 +406,19 @@
             // CONTEXTE
             { id: 'projet', url: 'projet.geojson', name: 'Projets existants', category: 'contexte', color: '#e91e63', weight: 4, hiddenByDefault: true, pane: 'projectPane' },
             { id: 'metropole', url: 'proprietemetropole.geojson', name: 'Propriété Métropole', category: 'contexte', color: '#d35400', weight: 3, fillOpacity: 0.1, hiddenByDefault: true, pane: 'contextPane' },
-            { id: 'reseauxstructurant', url: 'reseauxstructurant.geojson', name: 'Réseau Structurant', category: 'contexte', color: '#16a085', weight: 3, fill: false, hiddenByDefault: true, pane: 'contextPane' }
+            { id: 'reseauxstructurant', url: 'reseauxstructurant.geojson', name: 'Réseau Structurant', category: 'contexte', color: '#16a085', weight: 3, fill: false, hiddenByDefault: true, pane: 'contextPane' },
+            // Nouvelle carte de chaleur (points rouges)
+            { id: 'points_rouges', url: 'points-rouges.geojson', name: 'Points Noirs (Chaleur)', category: 'contexte', color: '#e74c3c', weight: 4, hiddenByDefault: true, isHeatmap: true, pane: 'diagnosticPane' }
         ];
+
+        // Helper pour projeter les coordonnées
+        function getLatLng(coords, needsReprojection) {
+            if (needsReprojection || coords[0] > 1000) {
+                var pt = proj4("EPSG:3945", "EPSG:4326", [coords[0], coords[1]]);
+                return new L.LatLng(pt[1], pt[0]);
+            }
+            return new L.LatLng(coords[1], coords[0]);
+        }
 
         function onEachFeature(feature, layer, configId) {
             const props = feature.properties;
@@ -393,22 +445,78 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 const needsReprojection = (data.crs && JSON.stringify(data.crs).includes('3945'));
-                const layer = L.geoJSON(data, {
-                    coordsToLatLng: (coords) => {
-                        if (needsReprojection || coords[0] > 1000) {
-                            var pt = proj4("EPSG:3945", "EPSG:4326", [coords[0], coords[1]]);
-                            return new L.LatLng(pt[1], pt[0]);
+                
+                let layer;
+
+                if (config.isHeatmap) {
+                    // Construction de la liste de points pour la carte de chaleur
+                    const heatPoints = [];
+                    if (data.features) {
+                        data.features.forEach(f => {
+                            if (f.geometry && f.geometry.type === 'Point') {
+                                const coords = f.geometry.coordinates;
+                                const latlng = getLatLng(coords, needsReprojection);
+                                heatPoints.push([latlng.lat, latlng.lng, 1.0]); // Intensité par défaut à 1.0
+                            } else if (f.geometry && f.geometry.type === 'MultiPoint') {
+                                f.geometry.coordinates.forEach(coords => {
+                                    const latlng = getLatLng(coords, needsReprojection);
+                                    heatPoints.push([latlng.lat, latlng.lng, 1.0]);
+                                });
+                            }
+                        });
+                    }
+
+                    // Couche de chaleur Leaflet.heat
+                    const heatLayer = L.heatLayer(heatPoints, {
+                        radius: 25,
+                        blur: 15,
+                        maxZoom: 17,
+                        gradient: { 0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red' }
+                    });
+
+                    // Couche invisible/très discrète mais interactive pour cliquer et obtenir la "description"
+                    const interactivePointsLayer = L.geoJSON(data, {
+                        coordsToLatLng: (coords) => getLatLng(coords, needsReprojection),
+                        pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: '#e74c3c',
+                            color: '#fff',
+                            weight: 1,
+                            opacity: 0.5,
+                            fillOpacity: 0.25,
+                            pane: config.pane
+                        }),
+                        onEachFeature: (f, l) => {
+                            const props = f.properties;
+                            // Utilisation obligatoire de la variable description demandée
+                            const desc = props.description || props.Notes || props.GO_DESCRITION || 'Point Rouge';
+                            let content = '<div class="popup-content">';
+                            content += `<strong>${desc}</strong>`;
+                            if (props.photo || props.Photo) {
+                                content += `<br><img src="${props.photo || props.Photo}" class="popup-photo" alt="Observation" onerror="this.style.display='none'">`;
+                            }
+                            content += '</div>';
+                            l.bindPopup(content, { maxWidth: 500 });
                         }
-                        return new L.LatLng(coords[1], coords[0]);
-                    },
-                    style: (f) => ({
-                        color: config.color, weight: config.weight, opacity: 0.9,
-                        fillColor: config.color, fillOpacity: config.fill === false ? 0 : (config.fillOpacity || 0.2),
-                        dashArray: config.dashArray || null, pane: config.pane
-                    }),
-                    pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, fillColor: config.color, color: "#fff", weight: 1.5, fillOpacity: 0.8, pane: config.pane }),
-                    onEachFeature: (f, l) => onEachFeature(f, l, config.id)
-                });
+                    });
+
+                    // On fusionne les deux couches dans un groupe
+                    layer = L.layerGroup([heatLayer, interactivePointsLayer]);
+
+                } else {
+                    // Chargement standard
+                    layer = L.geoJSON(data, {
+                        coordsToLatLng: (coords) => getLatLng(coords, needsReprojection),
+                        style: (f) => ({
+                            color: config.color, weight: config.weight, opacity: 0.9,
+                            fillColor: config.color, fillOpacity: config.fill === false ? 0 : (config.fillOpacity || 0.2),
+                            dashArray: config.dashArray || null, pane: config.pane
+                        }),
+                        pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 7, fillColor: config.color, color: "#fff", weight: 1.5, fillOpacity: 0.8, pane: config.pane }),
+                        onEachFeature: (f, l) => onEachFeature(f, l, config.id)
+                    });
+                }
+
                 layers[config.id] = layer;
                 if (!config.hiddenByDefault) layer.addTo(map);
                 addLayerToUI(config);
